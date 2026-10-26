@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-new-pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-new
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-new
+  template:
+    metadata:
+      labels:
+        app: mysql-new
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: rootpass
+            - name: MYSQL_DATABASE
+              value: laravel
+            - name: MYSQL_USER
+              value: laravel
+            - name: MYSQL_PASSWORD
+              value: secret
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-new-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-new
+spec:
+  selector:
+    app: mysql-new
+  ports:
+    - port: 3306
+      targetPort: 3306

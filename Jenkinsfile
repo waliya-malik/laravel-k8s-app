@@ -34,7 +34,14 @@ pipeline {
             steps {
                 sh '''
                     echo "Test 1: Database connectivity"
-                    $KUBECTL exec deploy/laravel-new -- php artisan migrate:status
+                    DB_OK=no
+                    for i in $(seq 1 24); do
+                        if $KUBECTL exec deploy/laravel-new -- php artisan migrate:status; then DB_OK=yes; break; fi
+                        echo "MySQL not ready yet, retrying in 5 seconds..."
+                        sleep 5
+                    done
+                    [ "$DB_OK" = "yes" ] || { echo "TEST FAILED: database"; exit 1; }
+
                     echo "Test 2: HTTP response from laravel-new service"
                     for i in $(seq 1 12); do
                         CODE=$($KUBECTL exec deploy/laravel-new -- curl -s -o /dev/null -w "%{http_code}" http://laravel-new || true)
@@ -42,7 +49,7 @@ pipeline {
                         if [ "$CODE" = "200" ]; then echo "TEST PASSED"; exit 0; fi
                         sleep 5
                     done
-                    echo "TEST FAILED"; exit 1
+                    echo "TEST FAILED: http"; exit 1
                 '''
             }
         }
